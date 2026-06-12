@@ -6,7 +6,7 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const repoRoot = path.resolve(__dirname, "..");
 
-const sourceDir = path.resolve(repoRoot, "..", "mail-gateway-java");
+const siblingSourceDir = path.resolve(repoRoot, "..", "mail-gateway-java");
 const destinationDir = path.resolve(repoRoot, "mail-gateway-java");
 
 async function pathExists(targetPath) {
@@ -32,21 +32,35 @@ function shouldIgnore(sourcePath) {
 }
 
 async function main() {
-	if (!(await pathExists(sourceDir))) {
-		console.error(`Source project not found: ${sourceDir}`);
-		console.error("Expected sibling directory ../mail-gateway-java.");
+	const hasSiblingSource = await pathExists(siblingSourceDir);
+	const hasRepoProject = await pathExists(destinationDir);
+
+	// CI/remote builds only see repository files. If the project is already
+	// present in-repo, do not fail when no sibling directory exists.
+	if (!hasSiblingSource && hasRepoProject) {
+		console.log(
+			`Using in-repo project at ${destinationDir} (no sibling source found).`,
+		);
+		return;
+	}
+
+	if (!hasSiblingSource) {
+		console.error(`Source project not found: ${siblingSourceDir}`);
+		console.error(
+			"Expected sibling directory ../mail-gateway-java or in-repo ./mail-gateway-java.",
+		);
 		process.exit(1);
 	}
 
 	await rm(destinationDir, { recursive: true, force: true });
 	await mkdir(path.dirname(destinationDir), { recursive: true });
 
-	await cp(sourceDir, destinationDir, {
+	await cp(siblingSourceDir, destinationDir, {
 		recursive: true,
 		filter: (src) => !shouldIgnore(src),
 	});
 
-	console.log(`Synchronized ${sourceDir} -> ${destinationDir}`);
+	console.log(`Synchronized ${siblingSourceDir} -> ${destinationDir}`);
 }
 
 main().catch((error) => {
