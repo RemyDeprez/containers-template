@@ -26,8 +26,11 @@
 	"private": true,
 	"scripts": {
 		"cf-typegen": "wrangler types",
+		"sync:mail-gateway": "node scripts/sync-mail-gateway.mjs",
 		"deploy": "wrangler deploy",
+		"predeploy": "npm run sync:mail-gateway",
 		"dev": "wrangler dev",
+		"predev": "npm run sync:mail-gateway",
 		"start": "wrangler dev"
 	}
 }

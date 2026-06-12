@@ -49,6 +49,84 @@ editing your Container by editing the content of `container_src`.
 | :--------------- | :------------------------------------ |
 | `npm run deploy` | Deploy your application to Cloudflare |
 
+## Deploy A Maven Java App (mail-gateway-java)
+
+This repository is already configured so Wrangler builds the container image from `./Dockerfile`.
+To deploy your `mail-gateway-java` application with Cloudflare Containers, use this flow.
+
+If your Java project is in a sibling folder (for example `../mail-gateway-java`), this repo now includes an automatic sync step before `dev` and `deploy`.
+
+### Sibling Folder Workflow (current setup)
+
+Expected parent layout:
+
+```text
+projet/
+├── containers-template/
+└── mail-gateway-java/
+```
+
+Run as usual:
+
+```bash
+npm install
+npm run dev
+```
+
+or:
+
+```bash
+npm run deploy
+```
+
+Before each `dev` and `deploy`, the script `npm run sync:mail-gateway` copies `../mail-gateway-java` into this repo at `./mail-gateway-java` (excluding `.git`, `target`, `node_modules`, `.idea`, `.vscode`) so Docker build context stays valid.
+
+### In-Repo Workflow (optional)
+
+If you prefer to keep everything directly in this repository, place your project under `./mail-gateway-java` and keep the same commands.
+
+To deploy your app with this approach, ensure:
+
+1. Add your Java project under `mail-gateway-java/` at the repository root.
+2. Ensure at minimum these files exist:
+	- `mail-gateway-java/pom.xml`
+	- `mail-gateway-java/src/...`
+3. The `Dockerfile` in this repo already builds this Maven project and runs the generated jar.
+4. Make sure your Java server listens on `0.0.0.0:8080`.
+	- The Worker container class currently uses port `8080` (see `src/index.ts`).
+
+Expected layout:
+
+```text
+.
+├── Dockerfile
+├── mail-gateway-java/
+│   ├── pom.xml
+│   └── src/
+└── src/
+	 └── index.ts
+```
+
+### Local Development
+
+```bash
+npm install
+npm run dev
+```
+
+Then call one of the Worker routes that forwards traffic to the container, for example:
+
+- `GET /singleton`
+- `GET /container/<id>`
+
+### Production Deployment
+
+```bash
+npm run deploy
+```
+
+Wrangler will build the Java container image from the `Dockerfile`, upload it, and deploy your Worker + Container configuration.
+
 ## Learn More
 
 To learn more about Containers, take a look at the following resources:

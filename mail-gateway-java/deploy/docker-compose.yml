@@ -1,0 +1,53 @@
+services:
+  mail-gateway:
+    build:
+      context: ..
+      dockerfile: Dockerfile
+    container_name: mail-gateway
+    restart: unless-stopped
+    env_file:
+      - .env
+    expose:
+      - "8080"
+    networks:
+      - mail_gateway_net
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:8080/actuator/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+
+  nginx:
+    image: nginx:1.27-alpine
+    container_name: mail-gateway-nginx
+    restart: unless-stopped
+    env_file:
+      - .env
+    depends_on:
+      - mail-gateway
+    ports:
+      - "80:80"
+      - "443:443"
+    command: >
+      /bin/sh -c "envsubst '$$DOMAIN' < /etc/nginx/templates/mail-gateway.conf.template > /etc/nginx/conf.d/mail-gateway.conf
+      && nginx -g 'daemon off;'"
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./nginx/templates:/etc/nginx/templates:ro
+      - ./nginx/conf.d:/etc/nginx/conf.d
+      - ./certbot/www:/var/www/certbot:ro
+      - ./certbot/conf:/etc/letsencrypt:ro
+    networks:
+      - mail_gateway_net
+
+  certbot:
+    image: certbot/certbot:latest
+    container_name: mail-gateway-certbot
+    volumes:
+      - ./certbot/www:/var/www/certbot
+      - ./certbot/conf:/etc/letsencrypt
+
+networks:
+  mail_gateway_net:
+    driver: bridge

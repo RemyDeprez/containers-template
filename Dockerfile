@@ -1,24 +1,24 @@
 # syntax=docker/dockerfile:1
 
-FROM golang:1.24-alpine AS build
+FROM maven:3.9-eclipse-temurin-21 AS build
 
-# Set destination for COPY
 WORKDIR /app
 
-# Download any Go modules
-COPY container_src/go.mod ./
-RUN go mod download
+# Copy pom first to leverage Docker layer cache for dependencies
+COPY mail-gateway-java/pom.xml ./
+RUN mvn -q -DskipTests dependency:go-offline
 
-# Copy container source code
-COPY container_src/*.go ./
+# Copy application sources and package as an executable jar
+COPY mail-gateway-java/src ./src
+RUN mvn -q -DskipTests package
 
-# Build
-RUN CGO_ENABLED=0 GOOS=linux go build -o /server
+FROM eclipse-temurin:21-jre-alpine
+WORKDIR /app
 
-FROM scratch
-COPY --from=build /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/
-COPY --from=build /server /server
+COPY --from=build /app/target/*.jar /app/app.jar
+
 EXPOSE 8080
+ENV PORT=8080
 
-# Run
-CMD ["/server"]
+# Java app must listen on 0.0.0.0:8080 (or update defaultPort in src/index.ts)
+CMD ["java", "-jar", "/app/app.jar"]
